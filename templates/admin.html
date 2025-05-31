@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+
+{% block styles %}
+<style>
+    .admin-container {
+        width: 100%;
+        padding: 1rem;
+    }
+
+    .admin-section {
+        background-color: rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .admin-section h2 {
+        color: var(--accent);
+        margin-bottom: 1rem;
+        font-size: 1.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: bold;
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+        width: 100%;
+        padding: 0.8rem;
+        border-radius: 5px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background-color: rgba(255, 255, 255, 0.1);
+        color: var(--light);
+        font-size: 1rem;
+    }
+
+    .form-group textarea {
+        min-height: 120px;
+    }
+
+    .form-group small {
+        display: block;
+        margin-top: 0.3rem;
+        font-size: 0.8rem;
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .form-buttons {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .players-list {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+    }
+
+    th, td {
+        padding: 0.8rem;
+        text-align: left;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    th {
+        background-color: rgba(0, 0, 0, 0.2);
+        color: var(--accent);
+    }
+
+    .numbers-cell {
+        font-size: 0.9rem;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .prize-upload {
+        margin-top: 2rem;
+    }
+
+    .prize-preview {
+        max-width: 200px;
+        max-height: 200px;
+        margin-top: 1rem;
+        border-radius: 10px;
+        display: block;
+    }
+
+    @media (min-width: 768px) {
+        .admin-container {
+            padding: 2rem;
+        }
+
+        .numbers-cell {
+            max-width: none;
+            white-space: normal;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <h1>Painel de Controle QuinBingo</h1>
+    <a href="{{ url_for('bingo') }}" class="btn btn-secondary">
+        <i class="fas fa-arrow-left"></i> Voltar para o Jogo
+    </a>
+    
+    {% if error %}
+    <div class="alert alert-danger">
+        <strong>Erro:</strong> {{ error }}
+    </div>
+    {% endif %}
+    
+    {% if success %}
+    <div class="alert alert-success">
+        <strong>Sucesso:</strong> {{ success }}
+    </div>
+    {% endif %}
+    
+    <div class="admin-section">
+        <h2><i class="fas fa-user-plus"></i> Gerenciamento de Cartelas</h2>
+        
+        <form method="POST">
+            <input type="hidden" name="add_player_card" value="true">
+            
+            <div class="form-group">
+                <label for="player_name">Nome do Comprador:</label>
+                <input type="text" id="player_name" name="player_name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="card_id">ID da Cartela:</label>
+                <input type="text" id="card_id" name="card_id" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="card_numbers">Números (24 números entre 1-75, separados por vírgula):</label>
+                <textarea id="card_numbers" name="card_numbers" rows="6" required 
+                          placeholder="Exemplo: 1,5,12,23,34,45,56,67,72,8,15,22,31,42,51,63,70,9,18,25,36,47,58,69"></textarea>
+                <small>Digite exatamente 24 números únicos entre 1 e 75, separados por vírgula</small>
+            </div>
+            
+            <div class="form-buttons">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Adicionar Cartela
+                </button>
+                <button type="button" id="clear-form" class="btn btn-secondary">
+                    <i class="fas fa-broom"></i> Limpar
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="admin-section">
+        <h2><i class="fas fa-gamepad"></i> Controle do Sorteio</h2>
+        <form method="POST">
+            <input type="hidden" name="start_countdown" value="true">
+            <button type="submit" class="btn btn-action">
+                <i class="fas fa-play"></i> Iniciar Contagem Regressiva (60s)
+            </button>
+        </form>
+        
+        <form method="POST" style="margin-top: 1rem;">
+            <input type="hidden" name="reset" value="true">
+            <button type="submit" class="btn btn-danger">
+                <i class="fas fa-redo"></i> Reiniciar Sorteio
+            </button>
+        </form>
+    </div>
+    
+    <div class="admin-section">
+        <h2><i class="fas fa-list"></i> Cartelas Cadastradas</h2>
+        <div class="players-list">
+            {% if data.players %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Comprador</th>
+                        <th>ID Cartela</th>
+                        <th>Números</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for player, cards in data.players.items() %}
+                        {% for card_id, numbers in cards.items() %}
+                        <tr>
+                            <td>{{ player }}</td>
+                            <td>{{ card_id }}</td>
+                            <td class="numbers-cell">{{ numbers|join(', ') }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>Nenhuma cartela cadastrada ainda</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="admin-section">
+        <h2><i class="fas fa-music"></i> Configurações de Áudio</h2>
+        <form method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="change_music" value="true">
+            <div class="form-group">
+                <label for="background_music">Música de Fundo (MP3/WAV):</label>
+                <input type="file" id="background_music" name="background_music" accept="audio/mp3,audio/wav">
+            </div>
+            <button type="submit" class="btn btn-secondary">
+                <i class="fas fa-upload"></i> Alterar Música
+            </button>
+            <p>Música atual: {{ data.background_music }}</p>
+        </form>
+    </div>
+    
+    <div class="admin-section">
+        <h2><i class="fas fa-trophy"></i> Configurações do Prêmio</h2>
+        <form method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="change_prize" value="true">
+            <div class="form-group">
+                <label for="prize_image">Imagem do Prêmio (JPG/PNG):</label>
+                <input type="file" id="prize_image" name="prize_image" accept="image/jpeg,image/png">
+                <img id="prize_preview" class="prize-preview" 
+                     src="{{ url_for('static', filename='images/' + prize_image) }}" 
+                     alt="Prêmio Atual">
+            </div>
+            <button type="submit" class="btn btn-secondary">
+                <i class="fas fa-upload"></i> Alterar Imagem do Prêmio
+            </button>
+        </form>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Botão Limpar Formulário
+        document.getElementById('clear-form')?.addEventListener('click', function() {
+            document.querySelectorAll('input[type="text"], textarea').forEach(el => {
+                el.value = '';
+            });
+        });
+
+        // Validação do formulário
+        document.querySelector('form[action=""]')?.addEventListener('submit', function(e) {
+            const numbers = document.getElementById('card_numbers').value;
+            const numsArray = numbers.split(',').map(n => n.trim()).filter(n => n);
+            
+            if (numsArray.length !== 24) {
+                alert('A cartela deve ter exatamente 24 números!');
+                e.preventDefault();
+                return;
+            }
+            
+            const hasInvalid = numsArray.some(n => isNaN(n) || n < 1 || n > 75);
+            if (hasInvalid) {
+                alert('Todos os números devem estar entre 1 e 75!');
+                e.preventDefault();
+                return;
+            }
+            
+            const unique = [...new Set(numsArray)];
+            if (unique.length !== 24) {
+                alert('Não podem haver números repetidos na cartela!');
+                e.preventDefault();
+            }
+        });
+
+        // Preview da imagem do prêmio
+        const prizeImageInput = document.getElementById('prize_image');
+        const prizePreview = document.getElementById('prize_preview');
+        
+        prizeImageInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = function(event) {
+                    prizePreview.src = event.target.result;
+                }
+                
+                reader.readAsDataURL(file);
+            }
+        });
+    });
+</script>
+{% endblock %}
+{% endblock %}

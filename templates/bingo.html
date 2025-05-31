@@ -1,0 +1,676 @@
+{% extends "base.html" %}
+
+{% block styles %}
+<style>
+    .bingo-container {
+        width: 100%;
+        padding: 1rem;
+        min-height: 100vh;
+    }
+
+    .header {
+        text-align: center;
+        margin-bottom: 1rem;
+        position: relative;
+    }
+
+    .header h1 {
+        font-family: 'Luckiest Guy', cursive;
+        font-size: 2.5rem;
+        color: var(--accent);
+        text-shadow: 3px 3px 0 var(--dark), 5px 5px 0 rgba(0, 0, 0, 0.2);
+        margin-bottom: 0.5rem;
+    }
+
+    .connection-status {
+        position: absolute;
+        top: 0;
+        right: 0;
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .connection-status::before {
+        content: '';
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 6px;
+    }
+
+    .connection-status.connected::before {
+        background-color: var(--success);
+    }
+
+    .connection-status.disconnected::before {
+        background-color: var(--danger);
+    }
+
+    .screen {
+        background-color: rgba(0, 0, 0, 0.6);
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        min-height: 70vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .hidden {
+        display: none !important;
+    }
+
+    .sponsors-display {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        margin: 1rem 0;
+        width: 100%;
+    }
+
+    .sponsor-slide {
+        width: 90%;
+        max-width: 300px;
+        height: 150px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    }
+
+    .sponsor-slide img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+    }
+
+    #countdown-display {
+        margin-top: 1rem;
+    }
+
+    #countdown {
+        font-size: 3rem;
+        font-weight: bold;
+        color: var(--primary);
+        margin: 0.5rem 0;
+    }
+
+    .countdown-bar {
+        width: 100%;
+        max-width: 300px;
+        height: 8px;
+        background-color: rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
+        margin: 1rem auto;
+        overflow: hidden;
+    }
+
+    .ball {
+        width: 100px;
+        height: 100px;
+        background: radial-gradient(circle at 30% 30%, #fff, var(--primary));
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: white;
+        margin: 1.5rem auto;
+        box-shadow: 0 0 20px rgba(255, 107, 107, 0.5);
+    }
+
+    .progress-container {
+        width: 100%;
+        max-width: 90%;
+        margin: 1.5rem auto;
+    }
+
+    .progress-info {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        font-size: 1rem;
+    }
+
+    .progress-bar {
+        height: 8px;
+        background-color: rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .drawn-balls {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 1rem;
+        max-height: 200px;
+        overflow-y: auto;
+        padding: 5px;
+    }
+
+    .drawn-balls span {
+        width: 40px;
+        height: 40px;
+        background-color: var(--secondary);
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: bold;
+        color: var(--dark);
+    }
+
+    #winner-screen {
+        background: linear-gradient(135deg, var(--dark), #1a1f24);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .winner-name {
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--accent);
+        margin: 1rem 0;
+        word-break: break-word;
+    }
+
+    .confetti {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background-color: var(--accent);
+        opacity: 0;
+        top: -10px;
+    }
+
+    .prize-section {
+        margin-top: 2rem;
+        text-align: center;
+        padding: 1rem;
+        background-color: rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+    }
+
+    .prize-image {
+        max-width: 100%;
+        height: auto;
+        max-height: 200px;
+        border-radius: 10px;
+        margin-top: 1rem;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .winner-card-animation {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.9);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.5s;
+    }
+
+    .winner-card-content {
+        background: linear-gradient(135deg, var(--accent), var(--primary));
+        padding: 2rem;
+        border-radius: 15px;
+        text-align: center;
+        max-width: 90%;
+        transform: scale(0.5);
+        transition: transform 0.5s;
+    }
+
+    .winner-card-content h3 {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+        color: white;
+    }
+
+    .winner-card-numbers {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin: 1rem 0;
+    }
+
+    .winner-number {
+        background-color: white;
+        color: var(--dark);
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: bold;
+        font-size: 1.2rem;
+        margin: 0 auto;
+    }
+
+    .volume-control {
+        position: fixed;
+        bottom: 15px;
+        right: 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background-color: rgba(0, 0, 0, 0.7);
+        padding: 8px 12px;
+        border-radius: 30px;
+        z-index: 100;
+    }
+
+    #volume-slider {
+        width: 80px;
+        height: 5px;
+        -webkit-appearance: none;
+        appearance: none;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 3px;
+        outline: none;
+    }
+
+    @media (min-width: 768px) {
+        .header h1 {
+            font-size: 4rem;
+        }
+
+        .sponsors-display {
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .ball {
+            width: 120px;
+            height: 120px;
+            font-size: 3rem;
+        }
+
+        .winner-name {
+            font-size: 3rem;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .winner-card-numbers {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bingo-container">
+    <div class="header">
+        <h1>QUINBINGO</h1>
+        <div class="connection-status" id="connection-status">Conectando...</div>
+    </div>
+    
+    <div id="main-display">
+        <div id="waiting-screen" class="screen">
+            <div class="sponsors-display">
+                {% for sponsor in sponsors %}
+                <div class="sponsor-slide">
+                    <img src="{{ url_for('static', filename='images/sponsors/' + sponsor.image) }}" 
+                         alt="{{ sponsor.name }}" loading="lazy">
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div id="countdown-display" class="hidden">
+                <h2>Sorteio começando em:</h2>
+                <div id="countdown">60</div>
+                <div class="countdown-bar">
+                    <div class="countdown-progress"></div>
+                </div>
+            </div>
+            
+            <p id="waiting-message">Aguardando início do sorteio...</p>
+        </div>
+        
+        <div id="drawing-screen" class="screen hidden">
+            <h2>Número sorteado:</h2>
+            <div id="current-ball" class="ball"></div>
+            
+            <div class="progress-container">
+                <div class="progress-info">
+                    <span id="drawn-count">{{ data.drawn_balls|length }}</span>/75 números sorteados
+                </div>
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+            </div>
+            
+            <div class="drawn-balls-container">
+                <h3>Números sorteados:</h3>
+                <div id="drawn-balls" class="drawn-balls"></div>
+            </div>
+        </div>
+        
+        <div id="winner-screen" class="screen hidden">
+            <div class="winner-content">
+                <div class="confetti"></div>
+                <div class="confetti"></div>
+                <div class="confetti"></div>
+                <h2>PARABÉNS!</h2>
+                <div id="winner-name" class="winner-name"></div>
+                <p>Você ganhou o QuinBingo!</p>
+                <div class="winner-card">
+                    Cartela vencedora: <span id="winner-card"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="prize-section">
+        <h2>Prêmio do QuinBingo</h2>
+        <img src="{{ url_for('static', filename='images/' + prize_image) }}" 
+             alt="Prêmio do QuinBingo" class="prize-image" loading="lazy">
+    </div>
+</div>
+
+<!-- Animação da Cartela Vencedora -->
+<div class="winner-card-animation" id="winner-card-animation">
+    <div class="winner-card-content" id="winner-card-content">
+        <h3>Cartela Vencedora</h3>
+        <div id="winner-card-player"></div>
+        <div class="winner-card-numbers" id="winner-card-numbers"></div>
+        <button id="close-winner-card" class="btn btn-primary">Fechar</button>
+    </div>
+</div>
+
+<audio id="countdown-sound" src="{{ url_for('static', filename='sounds/' + data.countdown_sound) }}"></audio>
+<audio id="ball-sound" src="{{ url_for('static', filename='sounds/' + data.ball_sound) }}"></audio>
+<audio id="winner-sound" src="{{ url_for('static', filename='sounds/' + data.winner_sound) }}"></audio>
+<audio id="background-music" loop src="{{ url_for('static', filename='sounds/' + data.background_music) }}"></audio>
+
+<div class="volume-control">
+    <button id="mute-btn" class="volume-btn">🔊</button>
+    <input type="range" id="volume-slider" min="0" max="1" step="0.1" value="0.5">
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Elementos
+        const connectionStatus = document.getElementById('connection-status');
+        const waitingScreen = document.getElementById('waiting-screen');
+        const drawingScreen = document.getElementById('drawing-screen');
+        const winnerScreen = document.getElementById('winner-screen');
+        const countdownDisplay = document.getElementById('countdown-display');
+        const countdownElement = document.getElementById('countdown');
+        const currentBallElement = document.getElementById('current-ball');
+        const drawnBallsElement = document.getElementById('drawn-balls');
+        const winnerNameElement = document.getElementById('winner-name');
+        const drawnCountElement = document.getElementById('drawn-count');
+        const progressFillElement = document.getElementById('progress-fill');
+        const winnerCardElement = document.getElementById('winner-card');
+        
+        // Elementos de áudio
+        const countdownSound = document.getElementById('countdown-sound');
+        const ballSound = document.getElementById('ball-sound');
+        const winnerSound = document.getElementById('winner-sound');
+        const backgroundMusic = document.getElementById('background-music');
+        const muteBtn = document.getElementById('mute-btn');
+        const volumeSlider = document.getElementById('volume-slider');
+        
+        // Elementos da animação
+        const winnerCardAnimation = document.getElementById('winner-card-animation');
+        const winnerCardContent = document.getElementById('winner-card-content');
+        const winnerCardPlayer = document.getElementById('winner-card-player');
+        const winnerCardNumbers = document.getElementById('winner-card-numbers');
+        const closeWinnerCard = document.getElementById('close-winner-card');
+
+        // Configuração inicial
+        backgroundMusic.volume = 0.5;
+        let isMuted = false;
+        let countdownInterval = null;
+        
+        // Socket.IO
+        const socket = io();
+        
+        socket.on('connect', function() {
+            connectionStatus.textContent = 'Conectado';
+            connectionStatus.classList.add('connected');
+            connectionStatus.classList.remove('disconnected');
+        });
+        
+        socket.on('disconnect', function() {
+            connectionStatus.textContent = 'Desconectado';
+            connectionStatus.classList.add('disconnected');
+            connectionStatus.classList.remove('connected');
+        });
+        
+        socket.on('game_update', function(data) {
+            updateGameDisplay(data);
+        });
+        
+        // Controles de volume
+        volumeSlider.addEventListener('input', function() {
+            backgroundMusic.volume = this.value;
+            muteBtn.textContent = this.value == 0 ? '🔇' : '🔊';
+            isMuted = this.value == 0;
+        });
+        
+        muteBtn.addEventListener('click', function() {
+            isMuted = !isMuted;
+            backgroundMusic.volume = isMuted ? 0 : volumeSlider.value || 0.5;
+            volumeSlider.value = backgroundMusic.volume;
+            this.textContent = isMuted ? '🔇' : '🔊';
+        });
+        
+        // Animação da cartela vencedora
+        function showWinnerCard(player, numbers) {
+            winnerCardPlayer.innerHTML = `<h4>${player}</h4>`;
+            winnerCardNumbers.innerHTML = '';
+            
+            numbers.forEach(num => {
+                const numElement = document.createElement('div');
+                numElement.className = 'winner-number';
+                numElement.textContent = num;
+                winnerCardNumbers.appendChild(numElement);
+            });
+            
+            winnerCardAnimation.style.opacity = '1';
+            winnerCardAnimation.style.pointerEvents = 'auto';
+            winnerCardContent.style.transform = 'scale(1)';
+            
+            // Animação dos números
+            gsap.from(".winner-number", {
+                scale: 0,
+                rotation: 180,
+                opacity: 0,
+                duration: 0.5,
+                stagger: 0.1,
+                ease: "back.out"
+            });
+        }
+
+        closeWinnerCard.addEventListener('click', function() {
+            winnerCardAnimation.style.opacity = '0';
+            winnerCardAnimation.style.pointerEvents = 'none';
+            winnerCardContent.style.transform = 'scale(0.5)';
+        });
+        
+        // Atualiza a exibição do jogo
+        function updateGameDisplay(data) {
+            switch(data.status) {
+                case 'waiting':
+                    showScreen(waitingScreen);
+                    hideCountdown();
+                    stopBackgroundMusic();
+                    break;
+                case 'counting_down':
+                    showScreen(waitingScreen);
+                    showCountdown(data.countdown_end);
+                    stopBackgroundMusic();
+                    break;
+                case 'drawing':
+                    showScreen(drawingScreen);
+                    startBackgroundMusic();
+                    updateDrawingScreen(data);
+                    break;
+                case 'finished':
+                    stopBackgroundMusic();
+                    if (data.winner) {
+                        showWinnerScreen(data);
+                    } else {
+                        showScreen(drawingScreen);
+                        updateDrawingScreen(data);
+                    }
+                    break;
+            }
+        }
+        
+        function showScreen(screenToShow) {
+            [waitingScreen, drawingScreen, winnerScreen].forEach(screen => {
+                screen.classList.add('hidden');
+            });
+            screenToShow.classList.remove('hidden');
+        }
+        
+        function showCountdown(endTime) {
+            countdownDisplay.classList.remove('hidden');
+            countdownSound.play();
+            
+            function update() {
+                const now = new Date();
+                const end = new Date(endTime);
+                const diff = Math.floor((end - now) / 1000);
+                
+                if (diff <= 0) {
+                    countdownElement.textContent = '0';
+                    stopCountdown();
+                    return;
+                }
+                
+                countdownElement.textContent = diff;
+                gsap.to(countdownElement, {
+                    scale: 1.2,
+                    duration: 0.5,
+                    yoyo: true,
+                    repeat: 1,
+                    ease: "power1.inOut"
+                });
+            }
+            
+            update();
+            countdownInterval = setInterval(update, 1000);
+        }
+        
+        function stopCountdown() {
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+        }
+        
+        function updateDrawingScreen(data) {
+            if (data.current_ball) {
+                currentBallElement.textContent = data.current_ball;
+                ballSound.play();
+                
+                gsap.fromTo(currentBallElement, 
+                    {scale: 0, rotation: -180, opacity: 0},
+                    {scale: 1, rotation: 0, opacity: 1, duration: 0.8, ease: "elastic.out(1, 0.5)"}
+                );
+            }
+            
+            if (drawnCountElement) {
+                drawnCountElement.textContent = data.drawn_balls.length;
+            }
+            
+            if (progressFillElement) {
+                const progress = (data.drawn_balls.length / 75) * 100;
+                gsap.to(progressFillElement, {
+                    width: `${progress}%`,
+                    duration: 0.8,
+                    ease: "power2.out"
+                });
+            }
+            
+            if (drawnBallsElement) {
+                drawnBallsElement.innerHTML = '';
+                data.drawn_balls.forEach(ball => {
+                    const ballElement = document.createElement('span');
+                    ballElement.textContent = ball;
+                    drawnBallsElement.appendChild(ballElement);
+                    
+                    gsap.from(ballElement, {
+                        y: 20,
+                        opacity: 0,
+                        duration: 0.5,
+                        ease: "back.out"
+                    });
+                });
+            }
+        }
+        
+        function showWinnerScreen(data) {
+            winnerNameElement.textContent = data.winner;
+            winnerCardElement.textContent = data.winner;
+            winnerSound.play();
+            
+            // Extrai os números da cartela vencedora
+            const winnerInfo = data.winner.match(/(.*) \(Cartela: (.*)\)/);
+            if (winnerInfo) {
+                const playerName = winnerInfo[1];
+                const cardId = winnerInfo[2];
+                const winnerNumbers = data.players[playerName][cardId];
+                
+                // Mostra a animação após 3 segundos
+                setTimeout(() => {
+                    showWinnerCard(data.winner, winnerNumbers);
+                }, 3000);
+            }
+            
+            gsap.from(winnerNameElement, {
+                scale: 0,
+                duration: 1,
+                ease: "elastic.out(1, 0.5)"
+            });
+            
+            gsap.to(".confetti", {
+                y: "random(500, 1000)",
+                x: "random(-200, 200)",
+                rotation: "random(0, 360)",
+                opacity: 1,
+                duration: 3,
+                stagger: 0.1,
+                ease: "power1.out"
+            });
+        }
+        
+        function startBackgroundMusic() {
+            if (backgroundMusic.paused) {
+                backgroundMusic.play().catch(e => console.log('Autoplay prevented:', e));
+            }
+        }
+        
+        function stopBackgroundMusic() {
+            backgroundMusic.pause();
+        }
+    });
+</script>
+{% endblock %}

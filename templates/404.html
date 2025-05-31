@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block styles %}
+<style>
+    .error-container {
+        max-width: 600px;
+        margin: 3rem auto;
+        padding: 2rem;
+        text-align: center;
+        background-color: rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+    }
+
+    .error-container h1 {
+        color: var(--accent);
+        margin-bottom: 1rem;
+    }
+
+    .error-container p {
+        margin-bottom: 2rem;
+        font-size: 1.1rem;
+    }
+
+    @media (max-width: 768px) {
+        .error-container {
+            margin: 1rem;
+            padding: 1.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="error-container">
+    <h1>Página não encontrada</h1>
+    <p>A página que você está procurando não existe.</p>
+    <a href="{{ url_for('bingo') }}" class="btn btn-primary">Voltar para o Bingo</a>
+</div>
+{% endblock %}

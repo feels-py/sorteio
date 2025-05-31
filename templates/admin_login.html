@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block styles %}
+<style>
+    .login-container {
+        max-width: 500px;
+        margin: 3rem auto;
+        padding: 2rem;
+        background-color: rgba(0, 0, 0, 0.3);
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        text-align: center;
+    }
+
+    .login-container h1 {
+        color: var(--accent);
+        margin-bottom: 2rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+        text-align: left;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: bold;
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 0.8rem;
+        border-radius: 5px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background-color: rgba(255, 255, 255, 0.1);
+        color: var(--light);
+        font-size: 1rem;
+    }
+
+    @media (max-width: 768px) {
+        .login-container {
+            margin: 1rem;
+            padding: 1.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <h1>Acesso Administrativo QuinBingo</h1>
+    
+    {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+    
+    <form method="POST">
+        <div class="form-group">
+            <label for="password">Senha de Acesso:</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        
+        <button type="submit" name="login" class="btn btn-primary">Entrar</button>
+    </form>
+</div>
+{% endblock %}
