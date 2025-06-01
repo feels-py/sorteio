@@ -4,64 +4,87 @@
 <style>
     .login-container {
         max-width: 500px;
-        margin: 3rem auto;
+        margin: 5rem auto;
         padding: 2rem;
-        background-color: rgba(0, 0, 0, 0.3);
+        background: rgba(0, 0, 0, 0.7);
         border-radius: 10px;
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
         text-align: center;
     }
-
+    
     .login-container h1 {
-        color: var(--accent);
+        color: #4ECDC4;
         margin-bottom: 2rem;
     }
-
+    
     .form-group {
         margin-bottom: 1.5rem;
         text-align: left;
     }
-
+    
     .form-group label {
         display: block;
         margin-bottom: 0.5rem;
         font-weight: bold;
+        color: white;
     }
-
+    
     .form-group input {
         width: 100%;
-        padding: 0.8rem;
+        padding: 12px;
         border-radius: 5px;
         border: 1px solid rgba(255, 255, 255, 0.2);
-        background-color: rgba(255, 255, 255, 0.1);
-        color: var(--light);
-        font-size: 1rem;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
     }
-
-    @media (max-width: 768px) {
-        .login-container {
-            margin: 1rem;
-            padding: 1.5rem;
-        }
+    
+    .btn-login {
+        width: 100%;
+        padding: 12px;
+        background: #4ECDC4;
+        color: #292F36;
+        border: none;
+        border-radius: 5px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .btn-login:hover {
+        background: #3bbbb3;
+    }
+    
+    .alert {
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 5px;
+        background: rgba(231, 29, 54, 0.2);
+        border-left: 4px solid #E71D36;
+        color: white;
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="login-container">
-    <h1>Acesso Administrativo QuinBingo</h1>
+    <h1>Acesso Administrativo</h1>
     
-    {% if error %}
-    <div class="alert alert-danger">{{ error }}</div>
-    {% endif %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert">
+                {{ message }}
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
     
     <form method="POST">
         <div class="form-group">
-            <label for="password">Senha de Acesso:</label>
+            <label for="password">Senha:</label>
             <input type="password" id="password" name="password" required>
         </div>
         
-        <button type="submit" name="login" class="btn btn-primary">Entrar</button>
+        <button type="submit" name="login" class="btn-login">Entrar</button>
     </form>
 </div>
 {% endblock %}

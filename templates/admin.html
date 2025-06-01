@@ -5,7 +5,7 @@
     .admin-container {
         max-width: 1200px;
         margin: 2rem auto;
-        padding: 1rem;
+        padding: 2rem;
         background: rgba(0, 0, 0, 0.7);
         border-radius: 10px;
     }
@@ -47,6 +47,26 @@
         width: 100%;
         padding: 12px;
         margin-top: 10px;
+        border: none;
+        border-radius: 5px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .btn-primary {
+        background: #4ECDC4;
+        color: #292F36;
+    }
+    
+    .btn-warning {
+        background: #FF9F1C;
+        color: #292F36;
+    }
+    
+    .btn-danger {
+        background: #E71D36;
+        color: white;
     }
     
     .players-table {
@@ -73,11 +93,10 @@
         border-radius: 20px;
         font-size: 0.9rem;
         font-weight: bold;
-        margin-left: 10px;
     }
     
     .status-waiting { background: #6c757d; }
-    .status-counting { background: #ffc107; color: #000; }
+    .status-counting_down { background: #ffc107; color: #000; }
     .status-drawing { background: #17a2b8; }
     .status-finished { background: #28a745; }
     
@@ -88,15 +107,15 @@
     }
     
     .alert-danger {
-        background-color: #f8d7da;
-        color: #721c24;
-        border: 1px solid #f5c6cb;
+        background: rgba(231, 29, 54, 0.2);
+        border-left: 4px solid #E71D36;
+        color: #fff;
     }
     
     .alert-success {
-        background-color: #d4edda;
-        color: #155724;
-        border: 1px solid #c3e6cb;
+        background: rgba(46, 196, 182, 0.2);
+        border-left: 4px solid #2EC4B6;
+        color: #fff;
     }
     
     .game-stats {
@@ -117,7 +136,7 @@
     .stat-value {
         font-size: 1.5rem;
         font-weight: bold;
-        color: #4ecca3;
+        color: #4ECDC4;
     }
     
     .stat-label {
@@ -131,13 +150,15 @@
 <div class="admin-container">
     <h1 class="text-center mb-4">Painel de Controle QuinBingo</h1>
     
-    {% if error %}
-    <div class="alert alert-danger">{{ error }}</div>
-    {% endif %}
-    
-    {% if success %}
-    <div class="alert alert-success">{{ success }}</div>
-    {% endif %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
     
     <div class="game-stats">
         <div class="stat-box">
@@ -171,10 +192,10 @@
                 <label for="card_numbers">Números (24 números entre 1-75, separados por vírgula ou espaço):</label>
                 <textarea id="card_numbers" name="card_numbers" class="form-control" rows="6" required
                           placeholder="Exemplo: 1,5,12,23,34,45,56,67,72,8,15,22,31,42,51,63,70,9,18,25,36,47,58,69"></textarea>
-                <small style="color: rgba(255,255,255,0.7)">Você pode colar os números em qualquer formato (linhas, vírgulas, espaços)</small>
+                <small style="color: rgba(255,255,255,0.7)">Você pode colar os números em qualquer formato</small>
             </div>
             
-            <button type="submit" name="add_player_card" class="btn btn-primary btn-block">
+            <button type="submit" name="add_player_card" class="btn-block btn-primary">
                 Adicionar Cartela
             </button>
         </form>
@@ -195,14 +216,14 @@
         </div>
         
         <form method="POST" class="mb-3">
-            <button type="submit" name="start_countdown" class="btn btn-warning btn-block"
+            <button type="submit" name="start_countdown" class="btn-block btn-warning"
                     {% if data['status'] != 'waiting' %}disabled{% endif %}>
                 Iniciar Contagem Regressiva (60s)
             </button>
         </form>
         
         <form method="POST">
-            <button type="submit" name="reset" class="btn btn-danger btn-block">
+            <button type="submit" name="reset" class="btn-block btn-danger">
                 Reiniciar Jogo Completo
             </button>
         </form>
@@ -211,7 +232,7 @@
     <div class="form-section">
         <h2>Cartelas Registradas (Total: {{ data['card_count'] }})</h2>
         {% if data['players'] %}
-        <div class="table-responsive">
+        <div style="overflow-x: auto;">
             <table class="players-table">
                 <thead>
                     <tr>
