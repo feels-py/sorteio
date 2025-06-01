@@ -3,7 +3,7 @@ import os
 import random
 import time
 from datetime import datetime, timedelta
-from threading import Thread
+from threading import Thread, Lock
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory
 from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
@@ -13,7 +13,7 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'quinbingo_super_secret_
 app.config['UPLOAD_FOLDER'] = 'static/sounds'
 app.config['IMAGE_UPLOAD_FOLDER'] = 'static/images'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # Configurações
 DATA_FILE = 'quinbingo_data.json'
@@ -29,51 +29,9 @@ PRIZE_IMAGE = 'premio.jpg'
 # Criar diretórios se não existirem
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['IMAGE_UPLOAD_FOLDER'], exist_ok=True)
-
-class QuinBingoGame:
-    def __init__(self):
-        self.data = self.load_data()
-    
-    def load_data(self):
-        if not os.path.exists(DATA_FILE):
-            return self.reset_game()
-        
-        try:
-            with open(DATA_FILE, 'r') as f:
-                data = json.load(f)
-                defaults = {
-                    'balls': BALLS_RANGE.copy(),
-                    'drawn_balls': [],
-                    'players': {},
-                    'winner': None,
-                    'status': 'waiting',
-                    'countdown_end': None,
-                    'current_ball': None,
-                    'background_music': 'background.mp3',
-                    'winner_sound': 'winner.mp3',
-                    'ball_sound': 'ball.mp3',
-                    'countdown_sound': 'countdown.mp3'
-                }
-                for key, value in defaults.items():
-                    if key not in data:
-                        data[key] = value
-                return data
-        except Exception as e:
-            print(f"Erro ao carregar dados: {e}")
-            return self.reset_game()
-    
-    def save_data(self):
-        try:
-            with open(DATA_FILE, 'w') as f:
-                json.dump(self.data, f, indent=4)
-            socketio.emit('game_update', self.data)
-            return True
-        except Exception as e:
-            print(f"Erro ao salvar dados: {e}")
-            return False
-    
-    def reset_game(self):
-        self.data = {
+if not os.path.exists(DATA_FILE):
+    with open(DATA_FILE, 'w') as f:
+        json.dump({
             'balls': BALLS_RANGE.copy(),
             'drawn_balls': [],
             'players': {},
@@ -85,126 +43,189 @@ class QuinBingoGame:
             'winner_sound': 'winner.mp3',
             'ball_sound': 'ball.mp3',
             'countdown_sound': 'countdown.mp3'
-        }
-        self.save_data()
-        return self.data
+        }, f)
+
+class QuinBingoGame:
+    def __init__(self):
+        self.lock = Lock()
+        self.data = self.load_data()
+    
+    def load_data(self):
+        with self.lock:
+            try:
+                with open(DATA_FILE, 'r') as f:
+                    data = json.load(f)
+                    # Garantir que todos os campos existam
+                    defaults = {
+                        'balls': BALLS_RANGE.copy(),
+                        'drawn_balls': [],
+                        'players': {},
+                        'winner': None,
+                        'status': 'waiting',
+                        'countdown_end': None,
+                        'current_ball': None,
+                        'background_music': 'background.mp3',
+                        'winner_sound': 'winner.mp3',
+                        'ball_sound': 'ball.mp3',
+                        'countdown_sound': 'countdown.mp3'
+                    }
+                    for key, value in defaults.items():
+                        if key not in data:
+                            data[key] = value
+                    return data
+            except Exception as e:
+                print(f"Erro ao carregar dados: {e}")
+                return self.reset_game()
+    
+    def save_data(self):
+        with self.lock:
+            try:
+                with open(DATA_FILE, 'w') as f:
+                    json.dump(self.data, f, indent=4)
+                socketio.emit('game_update', self.data)
+                return True
+            except Exception as e:
+                print(f"Erro ao salvar dados: {e}")
+                return False
+    
+    def reset_game(self):
+        with self.lock:
+            self.data = {
+                'balls': BALLS_RANGE.copy(),
+                'drawn_balls': [],
+                'players': {},
+                'winner': None,
+                'status': 'waiting',
+                'countdown_end': None,
+                'current_ball': None,
+                'background_music': 'background.mp3',
+                'winner_sound': 'winner.mp3',
+                'ball_sound': 'ball.mp3',
+                'countdown_sound': 'countdown.mp3'
+            }
+            self.save_data()
+            return self.data
     
     def add_player_card(self, player_name, card_id, card_numbers):
-        if not all([player_name, card_id, card_numbers]):
-            raise ValueError("Todos os campos devem ser preenchidos")
-        
-        try:
-            numbers = []
-            seen = set()
-            for num in card_numbers.split(','):
-                num = num.strip()
-                if not num:
-                    continue
-                try:
-                    n = int(num)
-                    if n < 1 or n > 75:
-                        raise ValueError("Números devem estar entre 1 e 75")
-                    if n in seen:
-                        raise ValueError("Não podem haver números repetidos")
-                    seen.add(n)
-                    numbers.append(n)
-                except ValueError:
-                    raise ValueError(f"Valor inválido: '{num}'. Use apenas números separados por vírgula")
+        with self.lock:
+            try:
+                # Validação dos dados
+                if not all([player_name, card_id, card_numbers]):
+                    raise ValueError("Todos os campos devem ser preenchidos")
                 
-            if len(numbers) != 24:
-                raise ValueError("A cartela deve ter exatamente 24 números")
+                # Processar números
+                numbers = []
+                seen = set()
+                for num in card_numbers.replace('\r', '').replace('\n', '').split(','):
+                    num = num.strip()
+                    if not num:
+                        continue
+                    try:
+                        n = int(num)
+                        if n < 1 or n > 75:
+                            raise ValueError(f"Número {n} fora do intervalo permitido (1-75)")
+                        if n in seen:
+                            raise ValueError(f"Número {n} repetido na cartela")
+                        seen.add(n)
+                        numbers.append(n)
+                    except ValueError:
+                        raise ValueError(f"Valor inválido: '{num}'. Use apenas números separados por vírgula")
+                
+                if len(numbers) != 24:
+                    raise ValueError(f"A cartela deve ter exatamente 24 números (foram fornecidos {len(numbers)})")
+                
+                # Verificar/Adicionar jogador
+                if player_name not in self.data['players']:
+                    self.data['players'][player_name] = {}
+                
+                # Verificar cartela existente
+                if card_id in self.data['players'][player_name]:
+                    raise ValueError(f"Cartela {card_id} já existe para {player_name}")
+                
+                # Adicionar cartela
+                self.data['players'][player_name][card_id] = numbers
+                
+                if not self.save_data():
+                    raise ValueError("Falha ao salvar os dados no servidor")
+                
+                return True
             
-            if player_name not in self.data['players']:
-                self.data['players'][player_name] = {}
-            
-            if card_id in self.data['players'][player_name]:
-                raise ValueError(f"Cartela {card_id} já existe para o jogador {player_name}")
-            
-            self.data['players'][player_name][card_id] = numbers
-            
-            if not self.save_data():
-                raise ValueError("Erro ao salvar no servidor")
-            
-            return True
-            
-        except ValueError as e:
-            raise ValueError(str(e))
-        except Exception as e:
-            raise ValueError(f"Erro ao processar cartela: {str(e)}")
-    
-    def change_prize_image(self, image_file):
-        if image_file and allowed_file(image_file.filename, {'jpg', 'jpeg', 'png'}):
-            filename = secure_filename(PRIZE_IMAGE)
-            image_path = os.path.join(app.config['IMAGE_UPLOAD_FOLDER'], filename)
-            image_file.save(image_path)
-            return True
-        return False
+            except Exception as e:
+                raise ValueError(str(e))
     
     def start_countdown(self):
-        if self.data['status'] != 'waiting':
-            return False
+        with self.lock:
+            if self.data['status'] != 'waiting':
+                return False
             
-        self.data['status'] = 'counting_down'
-        self.data['countdown_end'] = (datetime.now() + timedelta(seconds=60)).isoformat()
-        
-        if self.save_data():
-            Thread(target=self.run_countdown).start()
-            return True
-        return False
+            self.data['status'] = 'counting_down'
+            self.data['countdown_end'] = (datetime.now() + timedelta(seconds=60)).isoformat()
+            
+            if self.save_data():
+                Thread(target=self._run_countdown, daemon=True).start()
+                return True
+            return False
     
-    def run_countdown(self):
+    def _run_countdown(self):
         try:
-            while self.data['status'] == 'counting_down':
-                now = datetime.now()
-                end = datetime.fromisoformat(self.data['countdown_end'])
-                remaining = (end - now).total_seconds()
-                
-                if remaining <= 0:
-                    self.data['status'] = 'drawing'
-                    self.save_data()
-                    self.start_drawing()
-                    break
-                    
+            while True:
                 time.sleep(1)
-                
+                with self.lock:
+                    if self.data['status'] != 'counting_down':
+                        break
+                        
+                    now = datetime.now()
+                    end = datetime.fromisoformat(self.data['countdown_end'])
+                    remaining = (end - now).total_seconds()
+                    
+                    if remaining <= 0:
+                        self.data['status'] = 'drawing'
+                        self.save_data()
+                        self._run_drawing()
+                        break
         except Exception as e:
             print(f"Erro no countdown: {e}")
-            self.data['status'] = 'waiting'
-            self.save_data()
+            with self.lock:
+                self.data['status'] = 'waiting'
+                self.save_data()
     
-    def start_drawing(self):
+    def _run_drawing(self):
         try:
-            while self.data['balls'] and self.data['status'] == 'drawing':
+            while True:
                 time.sleep(3)
-                ball = random.choice(self.data['balls'])
-                self.data['balls'].remove(ball)
-                self.data['drawn_balls'].append(ball)
-                self.data['current_ball'] = ball
-                self.save_data()
-                self.check_winner()
+                with self.lock:
+                    if self.data['status'] != 'drawing' or not self.data['balls']:
+                        break
+                        
+                    ball = random.choice(self.data['balls'])
+                    self.data['balls'].remove(ball)
+                    self.data['drawn_balls'].append(ball)
+                    self.data['current_ball'] = ball
+                    
+                    if not self.save_data():
+                        print("Falha ao salvar durante o sorteio")
+                        continue
+                    
+                    # Verificar vencedor
+                    drawn_set = set(self.data['drawn_balls'])
+                    for player, cards in self.data['players'].items():
+                        for card_id, numbers in cards.items():
+                            if set(numbers).issubset(drawn_set):
+                                self.data['winner'] = f"{player} (Cartela: {card_id})"
+                                self.data['status'] = 'finished'
+                                self.save_data()
+                                return
             
-            if self.data['status'] == 'drawing':
-                self.data['status'] = 'finished'
-                self.save_data()
+            with self.lock:
+                if self.data['status'] == 'drawing':
+                    self.data['status'] = 'finished'
+                    self.save_data()
+                    
         except Exception as e:
             print(f"Erro no sorteio: {e}")
-            self.data['status'] = 'waiting'
-            self.save_data()
-    
-    def check_winner(self):
-        try:
-            drawn_balls = set(self.data['drawn_balls'])
-            for player, cards in self.data['players'].items():
-                for card_id, numbers in cards.items():
-                    if set(numbers).issubset(drawn_balls):
-                        self.data['winner'] = f"{player} (Cartela: {card_id})"
-                        self.data['status'] = 'finished'
-                        self.save_data()
-                        return True
-            return False
-        except Exception as e:
-            print(f"Erro ao verificar vencedor: {e}")
-            return False
+            with self.lock:
+                self.data['status'] = 'waiting'
+                self.save_data()
 
 quinbingo_game = QuinBingoGame()
 
@@ -217,10 +238,6 @@ def bingo():
                          data=quinbingo_game.data, 
                          sponsors=SPONSORS,
                          prize_image=PRIZE_IMAGE)
-
-@app.route('/favicon.ico')
-def favicon():
-    return send_from_directory(os.path.join(app.root_path, 'static/images'), 'favicon.ico')
 
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
@@ -248,9 +265,9 @@ def admin():
             
             elif 'start_countdown' in request.form:
                 if quinbingo_game.start_countdown():
-                    success = "Contagem regressiva iniciada!"
+                    success = "Contagem regressiva iniciada com sucesso!"
                 else:
-                    error = "Não foi possível iniciar a contagem regressiva (jogo já em andamento)"
+                    error = "Não foi possível iniciar (jogo já em andamento ou terminado)"
             
             elif 'reset' in request.form:
                 quinbingo_game.reset_game()
@@ -287,10 +304,6 @@ def admin():
                          error=error,
                          success=success,
                          prize_image=PRIZE_IMAGE)
-
-@app.errorhandler(404)
-def page_not_found(e):
-    return render_template('404.html'), 404
 
 @socketio.on('connect')
 def handle_connect():
