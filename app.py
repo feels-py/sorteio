@@ -26,6 +26,10 @@ SPONSORS = [
 ]
 PRIZE_IMAGE = 'premio.jpg'
 
+# Criar diretórios se não existirem
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+os.makedirs(app.config['IMAGE_UPLOAD_FOLDER'], exist_ok=True)
+
 class QuinBingoGame:
     def __init__(self):
         self.data = self.load_data()
@@ -54,7 +58,8 @@ class QuinBingoGame:
                     if key not in data:
                         data[key] = value
                 return data
-        except Exception:
+        except Exception as e:
+            print(f"Erro ao carregar dados: {e}")
             return self.reset_game()
     
     def save_data(self):
@@ -95,19 +100,25 @@ class QuinBingoGame:
                 num = num.strip()
                 if not num:
                     continue
-                n = int(num)
-                if n < 1 or n > 75:
-                    raise ValueError("Números devem estar entre 1 e 75")
-                if n in seen:
-                    raise ValueError("Não podem haver números repetidos")
-                seen.add(n)
-                numbers.append(n)
+                try:
+                    n = int(num)
+                    if n < 1 or n > 75:
+                        raise ValueError("Números devem estar entre 1 e 75")
+                    if n in seen:
+                        raise ValueError("Não podem haver números repetidos")
+                    seen.add(n)
+                    numbers.append(n)
+                except ValueError:
+                    raise ValueError(f"Valor inválido: '{num}'. Use apenas números separados por vírgula")
                 
             if len(numbers) != 24:
                 raise ValueError("A cartela deve ter exatamente 24 números")
             
             if player_name not in self.data['players']:
                 self.data['players'][player_name] = {}
+            
+            if card_id in self.data['players'][player_name]:
+                raise ValueError(f"Cartela {card_id} já existe para o jogador {player_name}")
             
             self.data['players'][player_name][card_id] = numbers
             
@@ -130,27 +141,32 @@ class QuinBingoGame:
         return False
     
     def start_countdown(self):
-        if self.data['status'] == 'counting_down':
+        if self.data['status'] != 'waiting':
             return False
             
         self.data['status'] = 'counting_down'
         self.data['countdown_end'] = (datetime.now() + timedelta(seconds=60)).isoformat()
         
         if self.save_data():
-            Thread(target=self.start_drawing_after_countdown).start()
+            Thread(target=self.run_countdown).start()
             return True
         return False
     
-    def start_drawing_after_countdown(self):
+    def run_countdown(self):
         try:
-            countdown_end = datetime.fromisoformat(self.data['countdown_end'])
-            while datetime.now() < countdown_end and self.data['status'] == 'counting_down':
+            while self.data['status'] == 'counting_down':
+                now = datetime.now()
+                end = datetime.fromisoformat(self.data['countdown_end'])
+                remaining = (end - now).total_seconds()
+                
+                if remaining <= 0:
+                    self.data['status'] = 'drawing'
+                    self.save_data()
+                    self.start_drawing()
+                    break
+                    
                 time.sleep(1)
-            
-            if self.data['status'] == 'counting_down':
-                self.data['status'] = 'drawing'
-                self.save_data()
-                self.start_drawing()
+                
         except Exception as e:
             print(f"Erro no countdown: {e}")
             self.data['status'] = 'waiting'
@@ -234,7 +250,7 @@ def admin():
                 if quinbingo_game.start_countdown():
                     success = "Contagem regressiva iniciada!"
                 else:
-                    error = "Erro ao iniciar contagem regressiva"
+                    error = "Não foi possível iniciar a contagem regressiva (jogo já em andamento)"
             
             elif 'reset' in request.form:
                 quinbingo_game.reset_game()
@@ -282,4 +298,4 @@ def handle_connect():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    socketio.run(app, host='0.0.0.0', port=port)
+    socketio.run(app, host='0.0.0.0', port=port, debug=True)
